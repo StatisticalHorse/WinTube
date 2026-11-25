@@ -1,5 +1,6 @@
 use crate::innertube::USER_AGENT;
 use std::collections::HashMap;
+use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,11 +15,19 @@ use tokio::net::{TcpListener, TcpStream};
 pub struct MediaProxy {
     port: u16,
     streams: Arc<Mutex<HashMap<String, Stream>>>,
+    lives: Arc<Mutex<HashMap<String, Live>>>,
 }
 
 struct Stream {
     url: String,
     content_type: String,
+}
+
+/// A live source: the HLS video and audio renditions picked for one height.
+/// Both are ordinary HTTPS URLs; ffmpeg does the muxing.
+struct Live {
+    video: String,
+    audio: Option<String>,
 }
 
 const CHUNK: u64 = 6 * 1024 * 1024;
@@ -35,14 +44,17 @@ impl MediaProxy {
             .port();
 
         let streams = Arc::new(Mutex::new(HashMap::<String, Stream>::new()));
+        let lives = Arc::new(Mutex::new(HashMap::<String, Live>::new()));
         let shared = streams.clone();
+        let shared_lives = lives.clone();
         tokio::spawn(async move {
             loop {
                 match listener.accept().await {
                     Ok((socket, _)) => {
                         let streams = shared.clone();
+                        let lives = shared_lives.clone();
                         tokio::spawn(async move {
-                            let _ = serve(socket, streams).await;
+                            let _ = serve(socket, streams, lives).await;
                         });
                     }
                     Err(_) => break,
@@ -50,7 +62,11 @@ impl MediaProxy {
             }
         });
 
-        Ok(Self { port, streams })
+        Ok(Self {
+            port,
+            streams,
+            lives,
+        })
     }
 
     pub fn local_url(&self, url: &str, kind: &str, mime: &str) -> String {
@@ -65,6 +81,22 @@ impl MediaProxy {
             );
         }
         format!("http://127.0.0.1:{}/media/{token}", self.port)
+    }
+
+    /// Live streams are two HLS renditions. ffmpeg pulls both, muxes them into
+    /// one fragmented MP4, and the player gets a single media element.
+    pub fn live_url(&self, video: &str, audio: Option<&str>) -> String {
+        let token = new_token();
+        if let Ok(mut lives) = self.lives.lock() {
+            lives.insert(
+                token.clone(),
+                Live {
+                    video: video.to_string(),
+                    audio: audio.map(str::to_string),
+                },
+            );
+        }
+        format!("http://127.0.0.1:{}/live/{token}", self.port)
     }
 }
 
@@ -91,6 +123,7 @@ fn new_token() -> String {
 async fn serve(
     mut socket: TcpStream,
     streams: Arc<Mutex<HashMap<String, Stream>>>,
+    lives: Arc<Mutex<HashMap<String, Live>>>,
 ) -> Result<(), String> {
     let mut head = Vec::new();
     let mut chunk = [0u8; 2048];
@@ -131,6 +164,19 @@ async fn serve(
         .filter_map(|line| line.split_once(':'))
         .find(|(name, _)| name.trim().eq_ignore_ascii_case("range"))
         .and_then(|(_, value)| parse_range(value.trim()));
+
+    if let Some(token) = path.strip_prefix("/live/") {
+        let live = lives.lock().ok().and_then(|lives| {
+            lives
+                .get(token)
+                .map(|entry| (entry.video.clone(), entry.audio.clone()))
+        });
+        let Some((video, audio)) = live else {
+            respond_plain(&mut socket, "404 Not Found", "unknown live stream").await?;
+            return Ok(());
+        };
+        return stream_live(&mut socket, &video, audio.as_deref()).await;
+    }
 
     let token = path.strip_prefix("/media/").unwrap_or_default();
     let stream = streams.lock().ok().and_then(|streams| {
@@ -203,6 +249,98 @@ async fn serve(
 
     let skip = if partial { 0 } else { start };
     stream_body(&mut socket, response, skip, length).await
+}
+
+async fn stream_live(
+    socket: &mut TcpStream,
+    video: &str,
+    audio: Option<&str>,
+) -> Result<(), String> {
+    let mut command = tokio::process::Command::new("ffmpeg");
+    command
+        .args(["-hide_banner", "-loglevel", "error"])
+        .args([
+            "-fflags",
+            "nobuffer",
+            "-probesize",
+            "32768",
+            "-analyzeduration",
+            "0",
+        ])
+        .args(["-i", video]);
+    if let Some(audio) = audio {
+        command
+            .args([
+                "-fflags",
+                "nobuffer",
+                "-probesize",
+                "32768",
+                "-analyzeduration",
+                "0",
+            ])
+            .args(["-i", audio]);
+    }
+    command.args(["-map", "0:v:0", "-c:v", "copy"]);
+    // Separate audio rendition when there is one. Some broadcasts come as a
+    // single muxed rendition; then the audio rides along with input 0.
+    match audio {
+        Some(_) => {
+            command.args(["-map", "1:a:0"]);
+        }
+        None => {
+            command.args(["-map", "0:a:0?"]);
+        }
+    }
+    // YouTube's HLS audio is AAC; re-wrap it so Chromium's decoder accepts
+    // the track inside MP4.
+    command.args([
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-ac",
+        "2",
+        "-ar",
+        "48000",
+    ]);
+    command
+        .args([
+            "-f",
+            "mp4",
+            "-movflags",
+            "frag_keyframe+empty_moov+default_base_moof",
+            "pipe:1",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .creation_flags(0x08000000);
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("ffmpeg is not available: {error}"))?;
+    let Some(mut out) = child.stdout.take() else {
+        let _ = child.kill().await;
+        return Err("ffmpeg produced no output".into());
+    };
+
+    // No Content-Length: the stream is open ended, so Chromium keeps reading
+    // as ffmpeg publishes fragments. `Connection: close` ends the body when
+    // the broadcast stops.
+    let head = "HTTP/1.1 200 OK\r\n\
+                Content-Type: video/mp4\r\n\
+                Cache-Control: no-store\r\n\
+                Access-Control-Allow-Origin: *\r\n\
+                Connection: close\r\n\r\n";
+    socket
+        .write_all(head.as_bytes())
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let result = tokio::io::copy(&mut out, socket).await;
+    drop(out);
+    let _ = child.kill().await;
+    result.map(|_| ()).map_err(|error| error.to_string())
 }
 
 async fn stream_body(

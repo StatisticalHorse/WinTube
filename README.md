@@ -17,6 +17,10 @@ the installer is a few megabytes instead of a bundled Chromium.
 - Watch pages with a from-scratch player: separate video and audio tracks kept in
   sync, the normal progress bar and controls, volume, speed (0.25x to 2x),
   quality up to 4K, captions, theater mode and fullscreen.
+- Live streams play in the same player. YouTube serves broadcasts as separate
+  HLS video and audio renditions; WinTube muxes them locally into one MP4 with
+  `ffmpeg`, so a live stream still has sound, quality choices and the normal
+  controls, with a LIVE marker instead of a seek bar.
 - Playback resumes where you stopped the last time. Positions are stored locally
   per video and saved on pause, seek, page change and window close.
 - Theater mode widens the player to the whole window, keeps the title, channel
@@ -40,7 +44,7 @@ the installer is a few megabytes instead of a bundled Chromium.
 
 ## Install
 
-1. Download the latest `WinTube_0.2.0_x64-setup.exe` from the
+1. Download the latest `WinTube_0.2.1_x64-setup.exe` from the
    [Releases](../../releases) page.
 2. Run it. The installer needs administrator rights.
 3. The build is not code signed, so Windows SmartScreen may show a warning.
@@ -54,7 +58,7 @@ Windows 10 installs; the installer offers to download it when it is missing.
 
 Playback and downloads use `yt-dlp`. Without it, WinTube can still play YouTube's
 360p muxed stream, but there is no HD and no download. `ffmpeg` is needed to merge
-video with audio and to extract m4a audio.
+video with audio, to extract m4a audio, and to play live broadcasts.
 
 Install either from a terminal:
 
@@ -76,6 +80,8 @@ folder to `PATH`. Close and reopen WinTube after changing `PATH`.
 - **Resume:** reopen a video you did not finish. It starts a few seconds before
   the point where you stopped. Watching to the end, or rewinding to the start,
   clears the stored point.
+- **Live:** open a broadcast the same way. The player shows LIVE instead of a
+  progress bar and follows the live edge. Quality options apply as usual.
 - **Save:** click Save under the video or choose Save to playlist from the more
   menu. Every playlist appears with a checkbox. Ticking adds the video, unticking
   removes it.
@@ -99,6 +105,11 @@ Rust side in `src-tauri/` is the API client and local media server:
   sends for media. A small local HTTP proxy in `src-tauri/src/media.rs` rewrites
   each request into a bounded range, which downloads at full speed, and relays
   the bytes to the player.
+- Live broadcasts come with no progressive or adaptive URLs, only HLS
+  renditions. The Rust side takes the chosen height's video playlist and the
+  audio playlist, and `ffmpeg` muxes them into one fragmented MP4 that a local
+  endpoint streams to the player. The process runs only while the stream is being
+  watched and stops when you leave the page.
 - Playback positions, volume, speed, quality and caption preference are stored
   locally. There is no account server and no telemetry.
 - Downloads shell out to `yt-dlp` and report progress through Tauri events.
@@ -146,6 +157,8 @@ parsed API payload as JSON without opening a window.
 - Comment posting and replies use YouTube's authenticated endpoints. If YouTube
   refuses a post, the app shows the error instead of pretending it worked.
 - No uploading, no Create button, no live chat and no casting.
+- Live streams play at the live edge. Pausing resumes where you stopped rather
+  than jumping forward, and the DVR window is not seekable.
 - The session only exists inside WinTube. Clearing the app's browsing data or
   signing out removes it.
 - Quality options come from `yt-dlp`. The fallback stream is 360p.

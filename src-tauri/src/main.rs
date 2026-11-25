@@ -194,7 +194,12 @@ async fn yt_streams(state: State<'_, AppState>, id: String) -> Result<Streams, S
     let mut streams = state.yt.streams(&id).await?;
     if let Some(proxy) = MEDIA.get() {
         for format in &mut streams.formats {
-            format.url = proxy.local_url(&format.url, &format.kind, &format.mime);
+            if format.kind == "live" {
+                format.url = proxy.live_url(&format.url, format.audio.as_deref());
+                format.audio = None;
+            } else {
+                format.url = proxy.local_url(&format.url, &format.kind, &format.mime);
+            }
         }
     }
     Ok(streams)

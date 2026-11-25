@@ -277,6 +277,11 @@ pub struct StreamFormat {
     pub height: u32,
     pub url: String,
     pub mime: String,
+    /// Live streams come as separate HLS renditions. The video URL goes in
+    /// `url`; this holds the matching audio rendition so the local proxy can
+    /// mux both into one MP4. It never reaches the webview.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -292,6 +297,7 @@ pub struct Streams {
     pub formats: Vec<StreamFormat>,
     pub subtitle: Option<Subtitle>,
     pub duration: f64,
+    pub live: bool,
 }
 
 pub struct InnerTube {
@@ -895,6 +901,7 @@ impl InnerTube {
                 height,
                 url: url.to_string(),
                 mime: "video/mp4".into(),
+                audio: None,
             });
         }
 
@@ -908,6 +915,7 @@ impl InnerTube {
                 .and_then(Value::as_str)
                 .and_then(|value| value.parse::<f64>().ok())
                 .unwrap_or(0.0),
+            live: false,
         })
     }
 
@@ -1200,6 +1208,10 @@ fn reply_params(video_id: &str, parent_comment_id: &str) -> String {
 }
 
 fn parse_streams_json(json: &Value) -> Streams {
+    if json["is_live"].as_bool().unwrap_or(false) {
+        return parse_live_streams(json);
+    }
+
     let entries: Vec<&Value> = json["formats"]
         .as_array()
         .into_iter()
@@ -1250,6 +1262,7 @@ fn parse_streams_json(json: &Value) -> Streams {
             height,
             url: format["url"].as_str().unwrap_or_default().to_string(),
             mime: format["ext"].as_str().unwrap_or_default().to_string(),
+            audio: None,
         });
     }
 
@@ -1293,6 +1306,7 @@ fn parse_streams_json(json: &Value) -> Streams {
             height: 0,
             url: format["url"].as_str().unwrap_or_default().to_string(),
             mime: format["ext"].as_str().unwrap_or_default().to_string(),
+            audio: None,
         });
     }
 
@@ -1302,6 +1316,86 @@ fn parse_streams_json(json: &Value) -> Streams {
         formats,
         subtitle: None,
         duration: json["duration"].as_f64().unwrap_or(0.0),
+        live: false,
+    }
+}
+
+/// Live broadcasts have no progressive or adaptive URLs: YouTube serves them
+/// as HLS renditions, one per video height plus a couple of audio tracks. The
+/// UI gets one entry per height, each carrying its audio rendition so the
+/// local media proxy can hand ffmpeg both and return a single playable MP4.
+fn parse_live_streams(json: &Value) -> Streams {
+    let entries: Vec<&Value> = json["formats"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|format| format["url"].as_str().is_some())
+        .collect();
+
+    let audio = entries
+        .iter()
+        .copied()
+        .filter(|format| {
+            format["vcodec"].as_str().unwrap_or("none") == "none"
+                && (format["audio_ext"].as_str().unwrap_or("none") != "none"
+                    || format["acodec"].as_str().unwrap_or("none") != "none")
+        })
+        .min_by_key(|format| live_audio_rank(format))
+        .and_then(|format| format["url"].as_str())
+        .map(str::to_string);
+
+    let mut videos: Vec<&Value> = entries
+        .iter()
+        .copied()
+        .filter(|format| {
+            format["vcodec"].as_str().unwrap_or("none") != "none"
+                && format["height"].as_u64().unwrap_or(0) > 0
+        })
+        .collect();
+    videos.sort_by(|a, b| {
+        codec_rank(a)
+            .cmp(&codec_rank(b))
+            .then_with(|| fps(b).cmp(&fps(a)))
+            .then_with(|| bitrate(b).total_cmp(&bitrate(a)))
+    });
+
+    let mut formats = Vec::new();
+    let mut heights = Vec::new();
+    for format in videos {
+        let height = format["height"].as_u64().unwrap_or(0) as u32;
+        if heights.contains(&height) {
+            continue;
+        }
+        heights.push(height);
+        formats.push(StreamFormat {
+            itag: itag(format),
+            kind: "live".into(),
+            label: format!("{height}p"),
+            height,
+            url: format["url"].as_str().unwrap_or_default().to_string(),
+            mime: "mp4".into(),
+            audio: audio.clone(),
+        });
+    }
+
+    formats.sort_by(|a, b| b.height.cmp(&a.height));
+
+    Streams {
+        formats,
+        subtitle: None,
+        duration: 0.0,
+        live: true,
+    }
+}
+
+/// The HLS audio renditions are 233 (HE-AAC, about 50 kbit/s) and 234
+/// (AAC-LC, about 130 kbit/s). yt-dlp reports neither `abr` nor `tbr` for
+/// them, so pick the richer one by itag.
+fn live_audio_rank(format: &Value) -> u8 {
+    match itag(format) {
+        234 => 0,
+        233 => 1,
+        _ => 2,
     }
 }
 

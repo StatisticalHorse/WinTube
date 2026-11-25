@@ -42,7 +42,10 @@
       this.options = options || {};
       this.shorts = options.variant === "shorts";
       this.loop = Boolean(options.loop);
-      this.videoFormats = (options.formats || []).filter((format) => format.kind === "video");
+      this.live = Boolean(options.live);
+      this.videoFormats = (options.formats || []).filter(
+        (format) => format.kind === "video" || format.kind === "live",
+      );
       this.audioFormats = (options.formats || []).filter((format) => format.kind === "audio");
       this.muxed = (options.formats || []).find((format) => format.kind === "muxed");
       this.speed = Number(prefs.get("speed", 1));
@@ -72,6 +75,7 @@
 
     build() {
       this.container.classList.add("wt-player");
+      if (this.live) this.container.classList.add("live");
       if (this.shorts) {
         this.buildShorts();
         return;
@@ -100,6 +104,7 @@
                 <input type="range" min="0" max="100" value="${this.volume}" class="wt-volume-slider" aria-label="Volume" />
               </div>
               <div class="wt-time">0:00 / 0:00</div>
+              <span class="wt-live-badge hidden">LIVE</span>
               <div class="wt-spacer"></div>
               <button type="button" data-act="cc" class="wt-cc" aria-label="Subtitles">${ICON("cc")}</button>
               <button type="button" data-act="settings" aria-label="Settings">${ICON("settings")}</button>
@@ -151,6 +156,11 @@
       this.tip = this.container.querySelector(".wt-progress-tip");
       this.toggleButton = this.container.querySelector('[data-act="toggle"]');
       this.timeLabel = this.container.querySelector(".wt-time");
+      this.liveBadge = this.container.querySelector(".wt-live-badge");
+      if (this.live) {
+        this.timeLabel?.classList.add("hidden");
+        this.liveBadge?.classList.remove("hidden");
+      }
       this.volumeSlider = this.container.querySelector(".wt-volume-slider");
       this.muteButton = this.container.querySelector('[data-act="mute"]');
       this.titleLabel = this.container.querySelector(".wt-player-title");
@@ -332,7 +342,11 @@
         this.options.onEnded?.();
       });
       this.video.addEventListener("error", () => {
-        this.fail("This stream could not be played. YouTube may have expired the link.");
+        this.fail(
+          this.live
+            ? "This live stream has ended or is unavailable."
+            : "This stream could not be played. YouTube may have expired the link.",
+        );
       });
 
       this.ticker = window.setInterval(() => this.tick(), 250);
@@ -358,7 +372,7 @@
           this.showControls();
         });
       };
-      if (this.shorts) {
+      if (this.shorts || this.live) {
         if (this.video.readyState >= 3) start();
         else this.video.addEventListener("canplay", start, { once: true });
       } else {
@@ -395,9 +409,11 @@
     }
 
     onLoaded() {
-      this.duration = Number.isFinite(this.video.duration)
-        ? this.video.duration
-        : this.options.duration || 0;
+      if (!this.live) {
+        this.duration = Number.isFinite(this.video.duration)
+          ? this.video.duration
+          : this.options.duration || 0;
+      }
       this.video.playbackRate = this.speed;
       if (this.audio) this.audio.playbackRate = this.speed;
       this.applyStart();
@@ -421,7 +437,7 @@
     /// Reports the stop point while playing (at most every 5 seconds) and on
     /// every real stop: pause, seek, page change and window close.
     saveProgress(force = false) {
-      if (this.shorts || this.finished || !this.options.onProgress) return;
+      if (this.shorts || this.live || this.finished || !this.options.onProgress) return;
       const duration = this.duration;
       const seconds = this.video.currentTime || 0;
       if (!Number.isFinite(duration) || duration <= 0) return;
@@ -463,6 +479,13 @@
     }
 
     tick() {
+      if (this.live) {
+        if (!this.dragging) {
+          this.played.style.width = "100%";
+          this.buffer.style.width = "100%";
+        }
+        return;
+      }
       this.duration = Number.isFinite(this.video.duration)
         ? this.video.duration
         : this.duration || this.options.duration || 0;
@@ -683,6 +706,7 @@
     }
 
     seekTo(seconds) {
+      if (this.live) return;
       const target = Math.max(0, Math.min(this.duration || 0, seconds));
       this.video.currentTime = target;
       if (this.separate) this.audio.currentTime = target;
@@ -701,12 +725,14 @@
     }
 
     startSeek(event) {
+      if (this.live) return;
       this.dragging = true;
       this.progress.setPointerCapture(event.pointerId);
       this.seekPreview(event);
     }
 
     moveSeek(event) {
+      if (this.live) return;
       if (this.dragging) this.seekPreview(event);
       if (!this.tip) return;
       const seconds = this.seekFraction(event);
@@ -759,6 +785,21 @@
       if (!this.videoFormats.length || !this.activeVideoUrl) return;
       const format = this.pickVideo();
       if (!format || this.activeVideoUrl === format.url) return;
+
+      // A live stream is always at the live edge, so there is no position to
+      // restore across a quality switch: just reopen the new rendition.
+      if (this.live) {
+        this.activeVideoUrl = format.url;
+        this.stage.classList.add("buffering");
+        this.video.src = format.url;
+        this.video.load();
+        this.video.addEventListener(
+          "loadedmetadata",
+          () => void this.video.play().catch(() => {}),
+          { once: true },
+        );
+        return;
+      }
 
       const time = this.video.currentTime;
       const wasPlaying = !this.video.paused;

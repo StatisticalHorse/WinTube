@@ -801,10 +801,11 @@ async function mountPlayer(container, data) {
 
     const player = new window.WinTubePlayer(container, {
       formats: streams.formats || [],
+      live: Boolean(streams.live),
       subtitle: streams.subtitle || null,
       duration: streams.duration || 0,
       title: data.title,
-      startAt: startAt || 0,
+      startAt: streams.live ? 0 : startAt || 0,
       onProgress: (seconds, duration) => {
         void invoke("yt_progress_set", { id: data.id, seconds, duration }).catch(() => {});
       },

@@ -1720,6 +1720,44 @@ body.watch-page #guide {
   font-variant-numeric: tabular-nums;
 }
 
+/* A live broadcast is always at the live edge, so the bar is a marker rather
+   than a handle: no thumb, no tooltip, no seeking. */
+.wt-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 8px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #f00;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.wt-live-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.wt-player.live .wt-progress {
+  cursor: default;
+}
+
+.wt-player.live .wt-progress-thumb,
+.wt-player.live .wt-progress-tip {
+  display: none;
+}
+
+.wt-player.live .wt-progress::before {
+  height: 3px;
+  background: rgb(255 255 255 / 22%);
+}
+
 .wt-spacer {
   flex: 1;
 }
