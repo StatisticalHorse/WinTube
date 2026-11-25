@@ -74,6 +74,7 @@ const state = {
   unread: 0,
   page: 0,
   player: null,
+  watchTrail: [],
   shortsQueue: [],
   shortsIndex: 0,
   shortsQueueAt: 0,
@@ -769,6 +770,24 @@ async function toggleLike(videoId, rating) {
 
 /* ------------------------------------------------------------------- player */
 
+/// Keeps the order videos were opened in, so the previous-track media button
+/// walks back through what was watched instead of leaving the watch page.
+function recordWatch(id) {
+  const trail = state.watchTrail;
+  if (trail[trail.length - 1] !== id) trail.push(id);
+  if (trail.length > 40) trail.splice(0, trail.length - 40);
+}
+
+function previousWatch(id) {
+  const trail = state.watchTrail;
+  const current = trail.lastIndexOf(id);
+  const from = current === -1 ? trail.length - 1 : current - 1;
+  for (let index = from; index >= 0; index -= 1) {
+    if (trail[index] !== id) return trail[index];
+  }
+  return "";
+}
+
 async function mountPlayer(container, data) {
   state.player?.destroy();
   state.player = null;
@@ -805,6 +824,8 @@ async function mountPlayer(container, data) {
       subtitle: streams.subtitle || null,
       duration: streams.duration || 0,
       title: data.title,
+      artist: data.channel,
+      artwork: `https://i.ytimg.com/vi/${encode(data.id)}/mqdefault.jpg`,
       startAt: streams.live ? 0 : startAt || 0,
       onProgress: (seconds, duration) => {
         void invoke("yt_progress_set", { id: data.id, seconds, duration }).catch(() => {});
@@ -819,6 +840,12 @@ async function mountPlayer(container, data) {
       },
       onNext: () => {
         if (data.related?.[0]) location.hash = `#/watch?v=${encode(data.related[0].id)}`;
+      },
+      onPrevious: () => {
+        const target = previousWatch(data.id);
+        if (!target) return false;
+        location.hash = `#/watch?v=${encode(target)}`;
+        return true;
       },
       onTheater: () => document.body.classList.toggle("theater"),
       onRetry: () => void start(),
@@ -974,6 +1001,14 @@ async function renderShorts(id) {
       subtitle: streams.subtitle || null,
       duration: streams.duration || 0,
       loop: true,
+      title: data.title,
+      artist: data.channel,
+      artwork: `https://i.ytimg.com/vi/${encode(id)}/mqdefault.jpg`,
+      onNext: () => shortStep(1),
+      onPrevious: () => {
+        shortStep(-1);
+        return true;
+      },
       onRetry: () => void renderShorts(id),
     });
     state.player = player;
@@ -1095,6 +1130,7 @@ function watchOwner(data) {
 
 async function renderWatch(id) {
   const page = ++currentPage;
+  recordWatch(id);
   document.body.classList.remove("theater");
   content.innerHTML = `<div class="watch-skeleton"><div class="skeleton player"></div>
     <div class="skeleton skeleton-line" style="width:50%;height:22px;margin-bottom:12px"></div>

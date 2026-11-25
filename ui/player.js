@@ -309,6 +309,7 @@
         this.stage.classList.add("playing");
         this.updateToggle();
         this.scheduleHide();
+        this.syncMediaSession();
         if (this.separate && this.audio.paused && !this.audio.ended) {
           if (Math.abs(this.audio.currentTime - this.video.currentTime) > 0.4) {
             this.audio.currentTime = this.video.currentTime;
@@ -322,6 +323,7 @@
         this.stage.classList.add("active");
         this.updateToggle();
         this.syncAudio("pause");
+        this.syncMediaSession();
         this.saveProgress(true);
       });
       this.video.addEventListener("play", () => {
@@ -339,6 +341,7 @@
         this.playing = false;
         this.updateToggle();
         this.showControls();
+        this.syncMediaSession();
         this.options.onEnded?.();
       });
       this.video.addEventListener("error", () => {
@@ -350,6 +353,7 @@
       });
 
       this.ticker = window.setInterval(() => this.tick(), 250);
+      this.setupMediaSession();
       this.leaveHandler = () => this.saveProgress(true);
       this.visibilityHandler = () => {
         if (document.visibilityState === "hidden") this.saveProgress(true);
@@ -693,15 +697,97 @@
     }
 
     toggle() {
-      if (this.video.paused) {
-        this.audioBlocked = false;
-        if (this.separate) {
-          this.audio.currentTime = this.video.currentTime;
-          void this.audio.play().catch(() => {});
+      if (this.video.paused) this.resume();
+      else this.pause();
+    }
+
+    resume() {
+      if (!this.video.paused) return;
+      this.audioBlocked = false;
+      if (this.separate) {
+        this.audio.currentTime = this.video.currentTime;
+        void this.audio.play().catch(() => {});
+      }
+      void this.video.play().catch(() => {
+        this.playing = false;
+        this.updateToggle();
+        this.showControls();
+      });
+    }
+
+    pause() {
+      if (this.video.paused) return;
+      this.video.pause();
+    }
+
+    /// Media keys and the Windows media overlay drive the whole player through
+    /// the Media Session API. Without handlers Chromium falls back to acting on
+    /// whichever media element owns the session, which here is the separate
+    /// audio element: the picture kept playing and only the sound stopped.
+    setupMediaSession() {
+      const session = typeof navigator !== "undefined" ? navigator.mediaSession : null;
+      if (!session) return;
+      this.mediaSession = session;
+
+      try {
+        const artwork = this.options.artwork
+          ? [{ src: this.options.artwork, sizes: "320x180", type: "image/jpeg" }]
+          : [];
+        session.metadata = new MediaMetadata({
+          title: this.options.title || "WinTube",
+          artist: this.options.artist || "",
+          artwork,
+        });
+      } catch {
+        /* metadata is optional */
+      }
+
+      const set = (action, handler) => {
+        try {
+          session.setActionHandler(action, handler);
+        } catch {
+          /* the action is not supported by this runtime */
         }
-        void this.video.play().catch(() => {});
-      } else {
-        this.video.pause();
+      };
+
+      set("play", () => this.resume());
+      set("pause", () => this.pause());
+      set("stop", () => this.pause());
+      set("nexttrack", () => this.mediaNav(() => this.options.onNext?.()));
+      set("previoustrack", () => this.mediaNav(() => this.previous()));
+      set("seekbackward", () => {
+        if (!this.live) this.seekBy(-10);
+      });
+      set("seekforward", () => {
+        if (!this.live) this.seekBy(10);
+      });
+      set("seekto", (details) => {
+        if (!this.live && Number.isFinite(details?.seekTime)) this.seekTo(details.seekTime);
+      });
+      this.syncMediaSession();
+    }
+
+    previous() {
+      if (this.options.onPrevious?.()) return;
+      if (!this.live) this.seekTo(0);
+    }
+
+    /// One press can reach the page more than once, because Windows delivers
+    /// it through the system media controls and the webview can also see it.
+    /// Collapse the duplicates so the skip buttons move exactly one video.
+    mediaNav(action) {
+      const now = Date.now();
+      if (now - (window.__wtMediaNavAt || 0) < 1200) return;
+      window.__wtMediaNavAt = now;
+      action();
+    }
+
+    syncMediaSession() {
+      if (!this.mediaSession) return;
+      try {
+        this.mediaSession.playbackState = this.video.paused ? "paused" : "playing";
+      } catch {
+        /* not supported */
       }
     }
 
@@ -889,6 +975,27 @@
 
     destroy() {
       this.saveProgress(true);
+      if (this.mediaSession) {
+        try {
+          this.mediaSession.playbackState = "none";
+          for (const action of [
+            "play",
+            "pause",
+            "stop",
+            "nexttrack",
+            "previoustrack",
+            "seekbackward",
+            "seekforward",
+            "seekto",
+          ]) {
+            this.mediaSession.setActionHandler(action, null);
+          }
+          this.mediaSession.metadata = null;
+        } catch {
+          /* already gone */
+        }
+        this.mediaSession = null;
+      }
       window.clearInterval(this.ticker);
       window.clearTimeout(this.hideTimer);
       window.clearTimeout(this.stallTimer);

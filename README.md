@@ -44,7 +44,7 @@ the installer is a few megabytes instead of a bundled Chromium.
 
 ## Install
 
-1. Download the latest `WinTube_0.2.1_x64-setup.exe` from the
+1. Download the latest `WinTube_0.2.2_x64-setup.exe` from the
    [Releases](../../releases) page.
 2. Run it. The installer needs administrator rights.
 3. The build is not code signed, so Windows SmartScreen may show a warning.
@@ -82,6 +82,10 @@ folder to `PATH`. Close and reopen WinTube after changing `PATH`.
   clears the stored point.
 - **Live:** open a broadcast the same way. The player shows LIVE instead of a
   progress bar and follows the live edge. Quality options apply as usual.
+- **Media keys:** play/pause, next and previous work from the keyboard and from
+  the Windows media overlay. Next opens the next related video, previous returns
+  to the video you were watching before it, and the play/pause key drives the
+  whole player instead of only its audio track.
 - **Save:** click Save under the video or choose Save to playlist from the more
   menu. Every playlist appears with a checkbox. Ticking adds the video, unticking
   removes it.
