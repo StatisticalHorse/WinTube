@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>YouTube</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="download-status" class="download-status" hidden>
+      <div class="download-status-text">Starting download...</div>
+      <div class="download-bar"><div class="download-bar-fill"></div></div>
+    </div>
+    <svg class="sprite" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="i-menu" viewBox="0 0 24 24">
+          <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+        </symbol>
+        <symbol id="i-mic" viewBox="0 0 24 24">
+          <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24">
+          <path d="M20 11h-7V4h-2v7H4v2h7v7h2v-7h7z" />
+        </symbol>
+        <symbol id="i-bell" viewBox="0 0 24 24">
+          <path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.63 5.36 6 7.93 6 11v5l-2 2v1h16v-1l-2-2z" />
+        </symbol>
+        <symbol id="i-home" viewBox="0 0 24 24">
+          <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1v-9.5z" />
+        </symbol>
+        <symbol id="i-shorts" viewBox="0 0 24 24">
+          <path d="M17.77 10.32l-1.2-.5L18 9.06a3.74 3.74 0 0 0-3.5-6.62L6 6.94a3.74 3.74 0 0 0 .23 6.86l1.2.5-1.44.86a3.74 3.74 0 0 0 3.5 6.62l8.5-4.5a3.74 3.74 0 0 0-.22-6.96zM10 14.65v-5.3L15 12l-5 2.65z" />
+        </symbol>
+        <symbol id="i-subs" viewBox="0 0 24 24">
+          <path d="M10 18v-6l5 3-5 3zm7-15H7v1h10V3zm3 3H4v1h16V6zm2 3H2v12h20V9z" />
+        </symbol>
+        <symbol id="i-history" viewBox="0 0 24 24">
+          <path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.95 8.95 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+        </symbol>
+        <symbol id="i-playlist" viewBox="0 0 24 24">
+          <path d="M3 6h13v2H3V6zm0 5h13v2H3v-2zm0 5h9v2H3v-2zm15-9v8l5-4-5-4z" />
+        </symbol>
+        <symbol id="i-watch-later" viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z" />
+        </symbol>
+        <symbol id="i-liked" viewBox="0 0 24 24">
+          <path d="M1 21h4V9H1v12zm22-11a2 2 0 0 0-2-2h-6.31l.95-4.57.03-.32a1.5 1.5 0 0 0-.44-1.06L14.17 1 7.59 7.59A2 2 0 0 0 7 9v10a2 2 0 0 0 2 2h9a2 2 0 0 0 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+        </symbol>
+        <symbol id="i-chevron-right" viewBox="0 0 24 24">
+          <path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+        </symbol>
+        <symbol id="i-chevron-down" viewBox="0 0 24 24">
+          <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+        </symbol>
+        <symbol id="i-chevron-up" viewBox="0 0 24 24">
+          <path d="m7.41 15.41 4.59-4.58 4.59 4.58L18 14l-6-6-6 6z" />
+        </symbol>
+        <symbol id="i-more" viewBox="0 0 24 24">
+          <path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+        </symbol>
+        <symbol id="i-like" viewBox="0 0 24 24">
+          <path d="M1 21h4V9H1v12zm22-11a2 2 0 0 0-2-2h-6.31l.95-4.57.03-.32a1.5 1.5 0 0 0-.44-1.06L14.17 1 7.59 7.59A2 2 0 0 0 7 9v10a2 2 0 0 0 2 2h9a2 2 0 0 0 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+        </symbol>
+        <symbol id="i-dislike" viewBox="0 0 24 24">
+          <path d="M15 3H6a2 2 0 0 0-1.84 1.22L1.14 11.27c-.09.23-.14.47-.14.73v2a2 2 0 0 0 2 2h6.31l-.95 4.57-.03.32a1.5 1.5 0 0 0 .44 1.06L9.83 23l6.59-6.59A2 2 0 0 0 17 15V5a2 2 0 0 0-2-2zm4 0v12h4V3h-4z" />
+        </symbol>
+        <symbol id="i-share" viewBox="0 0 24 24">
+          <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z" />
+        </symbol>
+        <symbol id="i-heart" viewBox="0 0 24 24">
+          <path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+        </symbol>
+        <symbol id="i-comment" viewBox="0 0 24 24">
+          <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z" />
+        </symbol>
+        <symbol id="i-remix" viewBox="0 0 24 24">
+          <path d="M17 4v3H7a3 3 0 0 0-3 3v1h2V10a1 1 0 0 1 1-1h10v3l5-4-5-4zM7 20v-3h10a3 3 0 0 0 3-3v-1h-2v1a1 1 0 0 1-1 1H7v-3l-5 4 5 4z" />
+        </symbol>
+        <symbol id="i-save" viewBox="0 0 24 24">
+          <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z" />
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24">
+          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+        </symbol>
+        <symbol id="i-sort" viewBox="0 0 24 24">
+          <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z" />
+        </symbol>
+        <symbol id="i-explore" viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19z" />
+        </symbol>
+        <symbol id="i-music" viewBox="0 0 24 24">
+          <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
+        </symbol>
+        <symbol id="i-movies" viewBox="0 0 24 24">
+          <path d="M18 4v1h-2V4h-2v1h-2V4H8v1H6V4H4v16h2v-1h2v1h4v-1h2v1h2v-1h2v1h2V4h-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z" />
+        </symbol>
+        <symbol id="i-live" viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-2 14V8l6 4-6 4z" />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <path d="M19.14 12.94a7.07 7.07 0 0 0 .06-.94c0-.32-.02-.64-.07-.94l2.03-1.58-1.92-3.32-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54h-3.84l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54h3.84l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96 1.92-3.32-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" />
+        </symbol>
+        <symbol id="i-help" viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 17h-2v-2h2v2zm1.07-7.75-.9.92C12.45 12.9 12 13.5 12 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26A1.99 1.99 0 0 0 12 7a2 2 0 0 0-2 2H8a4 4 0 1 1 8 0c0 .88-.36 1.68-.93 2.25z" />
+        </symbol>
+        <symbol id="i-feedback" viewBox="0 0 24 24">
+          <path d="M20 2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4l4 4 4-4h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z" />
+        </symbol>
+        <symbol id="i-pinned" viewBox="0 0 24 24">
+          <path d="M16 9V4h1V2H7v2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+        </symbol>
+        <symbol id="i-next" viewBox="0 0 24 24">
+          <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+        </symbol>
+        <symbol id="i-volume" viewBox="0 0 24 24">
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+        </symbol>
+        <symbol id="i-volume-low" viewBox="0 0 24 24">
+          <path d="M18.5 12A4.5 4.5 0 0 0 16 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" />
+        </symbol>
+        <symbol id="i-mute" viewBox="0 0 24 24">
+          <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z" />
+        </symbol>
+        <symbol id="i-cc" viewBox="0 0 24 24">
+          <path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM11 15H6v-6h5v2H8v2h3v2zm7 0h-5v-6h5v2h-3v2h3v2z" />
+        </symbol>
+        <symbol id="i-fullscreen" viewBox="0 0 24 24">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+        </symbol>
+        <symbol id="i-fullscreen-exit" viewBox="0 0 24 24">
+          <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+        </symbol>
+        <symbol id="i-theater" viewBox="0 0 24 24">
+          <path d="M19 7H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zm0 8H5V9h14v6z" />
+        </symbol>
+        <symbol id="i-chevron-left" viewBox="0 0 24 24">
+          <path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+        </symbol>
+        <symbol id="i-person" viewBox="0 0 24 24">
+          <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <header id="masthead">
+      <div class="mast-start">
+        <button class="icon-btn" id="guide-toggle" type="button" aria-label="Guide">
+          <svg class="icon"><use href="#i-menu" /></svg>
+        </button>
+        <a class="brand" href="#/" aria-label="YouTube Home">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+          </span>
+          <span class="brand-name">YouTube</span>
+        </a>
+      </div>
+
+      <div class="mast-center">
+        <form class="search" id="search-form" role="search">
+          <div class="search-box">
+            <input
+              id="search-input"
+              name="q"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Search"
+              aria-label="Search"
+            />
+          </div>
+          <button class="round-btn" type="submit" aria-label="Search">
+            <svg class="icon"><use href="#i-search" /></svg>
+          </button>
+          <button class="round-btn" type="button" aria-label="Search with your voice">
+            <svg class="icon"><use href="#i-mic" /></svg>
+          </button>
+        </form>
+      </div>
+
+      <div class="mast-end">
+        <button class="icon-btn" id="bell-button" type="button" aria-label="Notifications">
+          <svg class="icon"><use href="#i-bell" /></svg>
+        </button>
+        <button class="signin-pill" id="signin-button" type="button">Sign in</button>
+        <button class="avatar-btn" id="account-button" type="button" aria-label="Account" hidden>
+          <img id="account-avatar" alt="" hidden />
+          <span id="account-letter">W</span>
+        </button>
+      </div>
+    </header>
+
+    <div id="page">
+      <aside id="guide" aria-label="Guide"></aside>
+      <main id="content" tabindex="-1"></main>
+    </div>
+
+    <script src="player.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
